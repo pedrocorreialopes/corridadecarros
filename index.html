@@ -1,0 +1,451 @@
+
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Corrida de Carro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #1a1a2e;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        #road {
+            position: absolute;
+            width: 60%;
+            height: 100%;
+            background-color: #333;
+            left: 20%;
+            overflow: hidden;
+        }
+        
+        .lane-divider {
+            position: absolute;
+            width: 10px;
+            height: 80px;
+            background-color: #fff;
+            left: calc(50% - 5px);
+        }
+        
+        #car {
+            position: absolute;
+            width: 60px;
+            height: 100px;
+            bottom: 50px;
+            left: calc(50% - 30px);
+            transition: left 0.1s ease;
+            z-index: 10;
+        }
+        
+        .obstacle {
+            position: absolute;
+            width: 50px;
+            height: 80px;
+            background-color: #e63946;
+            border-radius: 5px;
+        }
+        
+        #score-display {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: white;
+            font-size: 24px;
+            z-index: 20;
+        }
+        
+        #game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            display: none;
+            z-index: 30;
+        }
+        
+        #start-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 40;
+        }
+        
+        .road-side {
+            position: absolute;
+            height: 100%;
+            width: 20%;
+            background-color: #4a6c2f;
+            top: 0;
+        }
+        
+        #left-side {
+            left: 0;
+        }
+        
+        #right-side {
+            right: 0;
+        }
+        
+        .tree {
+            position: absolute;
+            width: 30px;
+            height: 60px;
+            background-color: #2d4116;
+            border-radius: 50% 50% 0 0;
+        }
+        
+        .tree::after {
+            content: '';
+            position: absolute;
+            width: 6px;
+            height: 15px;
+            background-color: #5e3023;
+            bottom: -15px;
+            left: 12px;
+        }
+        
+        .controls-info {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: white;
+            background-color: rgba(0, 0, 0, 0.6);
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 20;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="road"></div>
+        <div class="road-side" id="left-side"></div>
+        <div class="road-side" id="right-side"></div>
+        
+        <div id="car">
+            <svg viewBox="0 0 60 100" xmlns="http://www.w3.org/2000/svg">
+                <rect x="5" y="15" width="50" height="80" rx="10" fill="#3498db" />
+                <rect x="10" y="5" width="40" height="20" rx="5" fill="#2980b9" />
+                <rect x="10" y="30" width="40" height="15" fill="#2c3e50" />
+                <rect x="5" y="75" width="10" height="20" rx="3" fill="#34495e" />
+                <rect x="45" y="75" width="10" height="20" rx="3" fill="#34495e" />
+                <circle cx="15" cy="85" r="8" fill="#111" />
+                <circle cx="15" cy="85" r="3" fill="#555" />
+                <circle cx="45" cy="85" r="8" fill="#111" />
+                <circle cx="45" cy="85" r="3" fill="#555" />
+            </svg>
+        </div>
+        
+        <div id="score-display">Pontuação: 0</div>
+        
+        <div id="game-over">
+            <h2 class="text-2xl font-bold mb-4">Fim de Jogo!</h2>
+            <p class="mb-4">Sua pontuação: <span id="final-score">0</span></p>
+            <button id="restart-button" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                Jogar Novamente
+            </button>
+        </div>
+        
+        <div id="start-screen">
+            <h1 class="text-4xl font-bold text-white mb-6">Corrida de Carro</h1>
+            <p class="text-xl text-white mb-8">Use as setas do teclado para desviar dos obstáculos!</p>
+            <button id="start-button" class="bg-green-500 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg text-xl">
+                Iniciar Jogo
+            </button>
+        </div>
+        
+        <div class="controls-info">
+            <p>Controles: ← → Setas do teclado</p>
+        </div>
+    </div>
+
+    <script>
+        const car = document.getElementById('car');
+        const road = document.getElementById('road');
+        const scoreDisplay = document.getElementById('score-display');
+        const gameOver = document.getElementById('game-over');
+        const finalScore = document.getElementById('final-score');
+        const restartButton = document.getElementById('restart-button');
+        const startScreen = document.getElementById('start-screen');
+        const startButton = document.getElementById('start-button');
+        const leftSide = document.getElementById('left-side');
+        const rightSide = document.getElementById('right-side');
+        
+        let carPosition = 50;
+        let score = 0;
+        let gameRunning = false;
+        let speed = 3;
+        let obstacleInterval;
+        let scoreInterval;
+        let dividerInterval;
+        let treeInterval;
+        let obstacles = [];
+        let dividers = [];
+        let trees = [];
+        
+        // Posição inicial do carro
+        car.style.left = `calc(${carPosition}% - 30px)`;
+        
+        // Controles do teclado
+        document.addEventListener('keydown', (e) => {
+            if (!gameRunning) return;
+            
+            if (e.key === 'ArrowLeft' && carPosition > 25) {
+                carPosition -= 5;
+            } else if (e.key === 'ArrowRight' && carPosition < 75) {
+                carPosition += 5;
+            }
+            
+            car.style.left = `calc(${carPosition}% - 30px)`;
+        });
+        
+        // Iniciar jogo
+        startButton.addEventListener('click', startGame);
+        restartButton.addEventListener('click', startGame);
+        
+        function startGame() {
+            // Resetar o jogo
+            clearInterval(obstacleInterval);
+            clearInterval(scoreInterval);
+            clearInterval(dividerInterval);
+            clearInterval(treeInterval);
+            
+            obstacles.forEach(obstacle => obstacle.remove());
+            obstacles = [];
+            
+            dividers.forEach(divider => divider.remove());
+            dividers = [];
+            
+            trees.forEach(tree => tree.remove());
+            trees = [];
+            
+            score = 0;
+            speed = 3;
+            carPosition = 50;
+            car.style.left = `calc(${carPosition}% - 30px)`;
+            scoreDisplay.textContent = `Pontuação: ${score}`;
+            
+            startScreen.style.display = 'none';
+            gameOver.style.display = 'none';
+            gameRunning = true;
+            
+            // Criar divisores de pista iniciais
+            createInitialDividers();
+            
+            // Criar árvores iniciais
+            createInitialTrees();
+            
+            // Iniciar intervalos
+            obstacleInterval = setInterval(createObstacle, 2000);
+            scoreInterval = setInterval(updateScore, 1000);
+            dividerInterval = setInterval(createDivider, 500);
+            treeInterval = setInterval(createTree, 800);
+            
+            // Iniciar animação
+            requestAnimationFrame(gameLoop);
+        }
+        
+        function createInitialDividers() {
+            for (let i = 0; i < 10; i++) {
+                const divider = document.createElement('div');
+                divider.className = 'lane-divider';
+                divider.style.top = `${i * 120 - 80}px`;
+                road.appendChild(divider);
+                dividers.push(divider);
+            }
+        }
+        
+        function createInitialTrees() {
+            // Árvores do lado esquerdo
+            for (let i = 0; i < 5; i++) {
+                const tree = document.createElement('div');
+                tree.className = 'tree';
+                tree.style.left = `${Math.random() * 15}%`;
+                tree.style.top = `${i * 200}px`;
+                leftSide.appendChild(tree);
+                trees.push(tree);
+            }
+            
+            // Árvores do lado direito
+            for (let i = 0; i < 5; i++) {
+                const tree = document.createElement('div');
+                tree.className = 'tree';
+                tree.style.right = `${Math.random() * 15}%`;
+                tree.style.top = `${i * 200 + 100}px`;
+                rightSide.appendChild(tree);
+                trees.push(tree);
+            }
+        }
+        
+        function createDivider() {
+            const divider = document.createElement('div');
+            divider.className = 'lane-divider';
+            divider.style.top = '-80px';
+            road.appendChild(divider);
+            dividers.push(divider);
+        }
+        
+        function createTree() {
+            // 50% de chance para cada lado
+            if (Math.random() < 0.5) {
+                const tree = document.createElement('div');
+                tree.className = 'tree';
+                tree.style.left = `${Math.random() * 15}%`;
+                tree.style.top = '-60px';
+                leftSide.appendChild(tree);
+                trees.push(tree);
+            } else {
+                const tree = document.createElement('div');
+                tree.className = 'tree';
+                tree.style.right = `${Math.random() * 15}%`;
+                tree.style.top = '-60px';
+                rightSide.appendChild(tree);
+                trees.push(tree);
+            }
+        }
+        
+        function createObstacle() {
+            if (!gameRunning) return;
+            
+            const obstacle = document.createElement('div');
+            obstacle.className = 'obstacle';
+            
+            // Posição aleatória na pista
+            const position = 20 + Math.random() * 60;
+            obstacle.style.left = `calc(${position}% - 25px)`;
+            obstacle.style.top = '-80px';
+            
+            // Adicionar SVG do obstáculo (outro carro)
+            obstacle.innerHTML = `
+                <svg viewBox="0 0 50 80" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="5" y="10" width="40" height="65" rx="8" fill="#e74c3c" />
+                    <rect x="8" y="5" width="34" height="15" rx="4" fill="#c0392b" />
+                    <rect x="8" y="25" width="34" height="12" fill="#2c3e50" />
+                    <rect x="5" y="60" width="8" height="15" rx="2" fill="#34495e" />
+                    <rect x="37" y="60" width="8" height="15" rx="2" fill="#34495e" />
+                    <circle cx="13" cy="68" r="6" fill="#111" />
+                    <circle cx="13" cy="68" r="2" fill="#555" />
+                    <circle cx="37" cy="68" r="6" fill="#111" />
+                    <circle cx="37" cy="68" r="2" fill="#555" />
+                </svg>
+            `;
+            
+            road.appendChild(obstacle);
+            obstacles.push(obstacle);
+        }
+        
+        function updateScore() {
+            if (!gameRunning) return;
+            
+            score += 10;
+            scoreDisplay.textContent = `Pontuação: ${score}`;
+            
+            // Aumentar a velocidade a cada 100 pontos
+            if (score % 100 === 0 && speed < 10) {
+                speed += 0.5;
+            }
+        }
+        
+        function checkCollision(car, obstacle) {
+            const carRect = car.getBoundingClientRect();
+            const obstacleRect = obstacle.getBoundingClientRect();
+            
+            return !(
+                carRect.right < obstacleRect.left ||
+                carRect.left > obstacleRect.right ||
+                carRect.bottom < obstacleRect.top ||
+                carRect.top > obstacleRect.bottom
+            );
+        }
+        
+        function endGame() {
+            gameRunning = false;
+            finalScore.textContent = score;
+            gameOver.style.display = 'block';
+            
+            clearInterval(obstacleInterval);
+            clearInterval(scoreInterval);
+            clearInterval(dividerInterval);
+            clearInterval(treeInterval);
+        }
+        
+        function gameLoop() {
+            if (!gameRunning) return;
+            
+            // Mover obstáculos
+            for (let i = 0; i < obstacles.length; i++) {
+                const obstacle = obstacles[i];
+                const top = parseFloat(obstacle.style.top) || 0;
+                
+                if (top > window.innerHeight) {
+                    obstacle.remove();
+                    obstacles.splice(i, 1);
+                    i--;
+                } else {
+                    obstacle.style.top = `${top + speed}px`;
+                    
+                    // Verificar colisão
+                    if (checkCollision(car, obstacle)) {
+                        endGame();
+                        return;
+                    }
+                }
+            }
+            
+            // Mover divisores de pista
+            for (let i = 0; i < dividers.length; i++) {
+                const divider = dividers[i];
+                const top = parseFloat(divider.style.top) || 0;
+                
+                if (top > window.innerHeight) {
+                    divider.remove();
+                    dividers.splice(i, 1);
+                    i--;
+                } else {
+                    divider.style.top = `${top + speed}px`;
+                }
+            }
+            
+            // Mover árvores
+            for (let i = 0; i < trees.length; i++) {
+                const tree = trees[i];
+                const top = parseFloat(tree.style.top) || 0;
+                
+                if (top > window.innerHeight) {
+                    tree.remove();
+                    trees.splice(i, 1);
+                    i--;
+                } else {
+                    tree.style.top = `${top + speed}px`;
+                }
+            }
+            
+            requestAnimationFrame(gameLoop);
+        }
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'95691f31b4acf1c9',t:'MTc1MTA3MTExMi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
